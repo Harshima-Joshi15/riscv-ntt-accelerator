@@ -34,3 +34,12 @@ Thumbs.db
 
 # Accidental command output / redirection files
 tatus*
+# FPGA synthesis and place-and-route generated files
+results/*.json
+results/*.config
+results/*.log
+results/*.v
+# Compiled RISC-V firmware outputs
+firmware/*.bin
+firmware/*.elf
+firmware/*.map
