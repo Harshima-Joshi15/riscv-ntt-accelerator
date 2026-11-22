@@ -20,9 +20,9 @@ This project develops a **RISC-V-integrated NTT hardware accelerator** using Ver
 
 The accelerator implements a forward 256-coefficient NTT using the finite-field modulus:
 
-\[
+$$
 q=3329
-\]
+$$
 
 The architecture includes modular arithmetic units, a reusable butterfly datapath, precomputed twiddle factors, a transform controller, coefficient storage, and a synchronous memory-mapped interface.
 
@@ -112,19 +112,24 @@ flowchart LR
 
 The butterfly computes:
 
-\[
+$$
 t=(b\cdot\zeta)\bmod q
-\]
+$$
 
-\[
+$$
 u=(a+t)\bmod q
-\]
+$$
 
-\[
+$$
 v=(a-t)\bmod q
-\]
+$$
 
-where \(a,b\) are input coefficients, \(\zeta\) is the selected twiddle factor, and \(q=3329\).
+where:
+
+- $a$ and $b$ are input coefficients.
+- $\zeta$ is the selected twiddle factor.
+- $q=3329$ is the modulus.
+- $u$ and $v$ are the butterfly outputs.
 
 ---
 
@@ -135,7 +140,7 @@ where \(a,b\) are input coefficients, \(\zeta\) is the selected twiddle factor, 
 | Parameter | Value |
 |---|---|
 | Transform length | 256 coefficients |
-| Modulus \(q\) | 3329 |
+| Modulus $q$ | 3329 |
 | Coefficient width | 12 bits |
 | Twiddle-generation root | 17 |
 | Twiddle ROM depth | 128 entries |
@@ -163,33 +168,33 @@ where \(a,b\) are input coefficients, \(\zeta\) is the selected twiddle factor, 
 
 ### Modular Arithmetic
 
-The arithmetic units operate over:
+The arithmetic units operate over the finite field:
 
-\[
+$$
 \mathbb{Z}_{3329}
-\]
+$$
 
 **Modular addition**
 
-\[
+$$
 r=(a+b)\bmod 3329
-\]
+$$
 
 The adder performs addition followed by modular correction.
 
 **Modular subtraction**
 
-\[
+$$
 r=(a-b)\bmod 3329
-\]
+$$
 
 The subtractor performs subtraction followed by modular correction.
 
 **Modular multiplication**
 
-\[
+$$
 r=(a\times b)\bmod 3329
-\]
+$$
 
 The multiplier uses a 24-bit intermediate product before modular reduction.
 
@@ -197,9 +202,9 @@ The multiplier uses a 24-bit intermediate product before modular reduction.
 
 The design uses a precomputed ROM containing 128 twiddle factors derived from the parameter:
 
-\[
+$$
 \zeta=17
-\]
+$$
 
 The ROM uses bit-reversed indexing for the transform schedule. Precomputing these values avoids generating powers of the root during accelerator execution.
 
@@ -409,9 +414,9 @@ The `ntt_stage128` stage-level testbench evaluates five deterministic input patt
 
 Each pattern checks 128 butterfly operations, giving:
 
-\[
+$$
 5\times128=640
-\]
+$$
 
 **Recorded result: Zero mismatches across all 640 butterfly checks.**
 
