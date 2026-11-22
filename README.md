@@ -1,420 +1,348 @@
 # RISC-V Integrated Hardware Accelerator for NTT-Based Post-Quantum Cryptography
 
-<p align="center">
+**A RISC-V-integrated hardware accelerator for Number Theoretic Transform (NTT) computation using ML-KEM-related parameters.**
 
-  **A RISC-V integrated hardware accelerator for NTT computation using ML-KEM-related parameters**
-
-  <br/>
-
-  Verilog RTL · PicoRV32 · Python · Icarus Verilog · Yosys · nextpnr-ecp5
-
-</p>
+Verilog RTL · PicoRV32 · Python · Icarus Verilog · Yosys · nextpnr-ecp5
 
 ---
 
 ## Overview
 
-Post-quantum cryptography is driving the need for efficient hardware implementations of mathematical operations used in cryptographic algorithms.
+This project develops and evaluates a hardware accelerator for NTT computation, a core mathematical operation used in lattice-based post-quantum cryptography.
 
-This project explores the design of a **RISC-V-integrated Number Theoretic Transform (NTT) accelerator**, using parameters associated with ML-KEM (FIPS 203).
+The accelerator implements a 256-point Number Theoretic Transform using the ML-KEM parameter set. It is integrated with a PicoRV32 processor through a memory-mapped interface, allowing processor firmware to load coefficients, start the accelerator, monitor its status, and retrieve the computed results.
 
-The accelerator implements a forward 256-coefficient NTT over:
-
-\[
-q=3329
-\]
-
-It combines a reusable butterfly datapath, modular arithmetic units, a twiddle-factor ROM, coefficient storage, an accelerator controller, and a memory-mapped interface.
-
-A PicoRV32 processor executes firmware to configure the accelerator, transfer polynomial coefficients, initiate computation, and retrieve the results.
-
-The design has been functionally verified through RTL simulations, Python reference comparisons, processor-level tests, and FPGA synthesis and place-and-route evaluation.
+The project covers RTL design, software reference modelling, processor integration, functional verification, FPGA synthesis, and place-and-route evaluation.
 
 ## Key Features
 
-- 256-coefficient forward NTT engine.
-- Modular addition, subtraction, and multiplication.
-- 128-entry precomputed twiddle-factor ROM.
-- Reusable butterfly datapath.
-- Controller-driven transform execution.
+- 256-point NTT datapath using ML-KEM-related parameters.
+- Modular arithmetic over the prime field with \(q = 3329\).
+- Reusable hardware butterfly processing unit.
+- 128-entry twiddle-factor ROM.
+- Dedicated NTT control and coefficient storage.
 - Memory-mapped accelerator interface.
-- PicoRV32 RISC-V processor integration.
-- Firmware-driven computation and output comparison.
-- Python golden-reference verification.
-- FPGA resource and timing evaluation using open-source tools.
-
----
+- PicoRV32 processor integration.
+- Python-based reference verification.
+- FPGA synthesis and ECP5 implementation evaluation.
 
 ## System Architecture
 
-The design consists of three major subsystems:
-
-1. **RISC-V processor:** Executes firmware and manages accelerator transactions.
-2. **MMIO interface:** Handles control, status, and coefficient transfers.
-3. **NTT engine:** Performs the transform using modular arithmetic hardware.
-
-### High-level architecture
+The design follows a processor-controlled accelerator architecture.
 
 ```mermaid
-flowchart TB
-    subgraph CPU["RISC-V PROCESSOR SUBSYSTEM"]
-        P["PicoRV32 CPU"]
-        F["Firmware"]
-        B["Bus Adapter"]
-        M["Processor Memory"]
-        P <--> F
-        P <--> B
-        B <--> M
-    end
-
-    subgraph ACC["NTT ACCELERATOR"]
-        I["MMIO Interface"]
-        C["Control and Status"]
-        S["Coefficient Storage"]
-        E["NTT Engine"]
-        T["Twiddle ROM"]
-        D["Reusable Butterfly"]
-        I <--> C
-        I <--> S
-        S --> E
-        E <--> T
-        E <--> D
-        E --> S
-    end
-
-    B <--> I
+flowchart TD
+    A["PicoRV32 Processor"] --> B["Memory-Mapped Bus Interface"]
+    B --> C["NTT Accelerator Controller"]
+    C --> D["Coefficient Memory"]
+    C --> E["Twiddle Factor ROM"]
+    D --> F["NTT Butterfly Unit"]
+    E --> F
+    F --> D
+    D --> G["NTT Result Output"]
+    G --> B
+    B --> A
 ```
 
-### NTT butterfly datapath
+### Processing Sequence
 
-The engine uses a reusable butterfly unit to perform modular polynomial operations.
+1. The processor writes input coefficients into the accelerator interface.
+2. The controller prepares the coefficient memory.
+3. The processor issues the start command.
+4. The NTT engine performs the transform through multiple stages.
+5. The controller indicates completion.
+6. The processor reads the output coefficients.
+
+## Mathematical Foundation
+
+The implementation uses the following ML-KEM-related parameters:
+
+| Parameter | Value |
+|---|---:|
+| Transform size \(N\) | 256 |
+| Modulus \(q\) | 3329 |
+| Root of unity | 17 |
+| Twiddle-factor entries | 128 |
+| Coefficient width | 12 bits |
+
+### NTT Butterfly Operation
+
+The butterfly unit processes two input coefficients and a selected twiddle factor.
+
+The intermediate product is:
+
+$$
+t = (b \cdot \zeta) \bmod q
+$$
+
+The two butterfly outputs are:
+
+$$
+u = (a+t) \bmod q
+$$
+
+$$
+v = (a-t) \bmod q
+$$
+
+Here, \(a\) and \(b\) are input coefficients, and \(\zeta\) is the selected twiddle factor.
+
+The modular arithmetic ensures that the results remain within the field defined by \(q = 3329\).
+
+### Butterfly Datapath
 
 ```mermaid
 flowchart LR
-    A["Coefficient A"] --> ADD["Modular Adder"]
-    A --> SUB["Modular Subtractor"]
-    B["Coefficient B"] --> MUL["Modular Multiplier"]
-    Z["Twiddle Factor"] --> MUL
-    MUL --> ADD
-    MUL --> SUB
-    ADD --> U["Output U"]
-    SUB --> V["Output V"]
+    A["Input a"] --> C["Modular Adder"]
+    B["Input b"] --> D["Modular Multiplier"]
+    Z["Twiddle ζ"] --> D
+    D --> E["Intermediate t"]
+    E --> C
+    A --> F["Modular Subtractor"]
+    E --> F
+    C --> U["Output u"]
+    F --> V["Output v"]
 ```
-
-The butterfly computes:
-
-\[
-t=(b\cdot\zeta)\bmod q
-\]
-
-\[
-u=(a+t)\bmod q
-\]
-
-\[
-v=(a-t)\bmod q
-\]
-
-where \(a,b\) are input coefficients and \(\zeta\) is the selected twiddle factor.
-
----
 
 ## Hardware Design
 
-| Parameter | Configuration |
-|---|---|
-| Transform length | 256 coefficients |
-| Modulus | 3329 |
-| Coefficient width | 12 bits |
-| Twiddle-generation root | 17 |
-| Twiddle ROM | 128 entries |
-| Transform schedule | Cooley–Tukey DIT |
-| Butterfly architecture | Reusable datapath |
-| Controller states | IDLE, LOAD, RUN |
+The RTL is organized into modular components so that arithmetic operations, transform control, and processor communication can be developed and verified independently.
 
-### Main RTL modules
-
-| Module | Function |
+| Module | Responsibility |
 |---|---|
-| `mlkem_ntt_engine.v` | Transform controller and computation engine |
 | `modular_adder.v` | Modular addition |
 | `modular_subtractor.v` | Modular subtraction |
 | `modular_multiplier.v` | Modular multiplication |
 | `ntt_butterfly.v` | Butterfly computation |
-| `ntt_twiddle_rom.v` | Precomputed twiddle factors |
+| `ntt_twiddle_rom.v` | Twiddle-factor storage |
+| `mlkem_ntt_engine.v` | NTT stage execution and coefficient management |
 | `ntt_accelerator_mmio.v` | Memory-mapped control and data interface |
 
-### Controller flow
+### NTT Engine
 
-```mermaid
-stateDiagram-v2
-    [*] --> IDLE
-    IDLE --> LOAD: Start request
-    LOAD --> RUN: Input prepared
-    RUN --> IDLE: Transform complete
-```
+The NTT engine uses a reusable butterfly unit to perform the transform across its stages.
 
-The controller sequences coefficient loading and butterfly execution while managing the transform operation.
+Its main responsibilities include:
 
----
+- Managing the transform state and stage progression.
+- Selecting coefficient pairs.
+- Supplying the appropriate twiddle factors.
+- Performing butterfly operations.
+- Writing the computed coefficients back to storage.
+- Indicating transform completion.
+
+### Input Coefficient Normalization
+
+Input coefficients are normalized to the modulus before transform processing. This allows input values in the supported 12-bit range to be reduced into the field.
 
 ## RISC-V Processor Integration
 
-The accelerator is integrated with the **PicoRV32 RISC-V processor** through a bus adapter and memory-mapped interface.
-
-The processor executes firmware that:
-
-1. Initializes the input polynomial.
-2. Writes 256 coefficients to the accelerator.
-3. Issues the START command.
-4. Polls the STATUS register.
-5. Reads the 256 transformed coefficients.
-6. Compares the outputs with expected results.
-
-### Processor-to-accelerator transaction
-
-```mermaid
-sequenceDiagram
-    participant CPU as PicoRV32
-    participant MMIO as MMIO Interface
-    participant NTT as NTT Engine
-
-    CPU->>MMIO: Write input coefficients
-    CPU->>MMIO: START command
-    MMIO->>NTT: Begin transform
-    NTT->>NTT: Execute butterfly operations
-    NTT-->>MMIO: Completion
-    loop Until complete
-        CPU->>MMIO: Read STATUS
-        MMIO-->>CPU: Busy / Complete
-    end
-    CPU->>MMIO: Read output coefficients
-    MMIO-->>CPU: Transformed data
-```
-
-### MMIO register map
-
-| Offset | Access | Description |
-|---|---|---|
-| `0x000` | Write | CONTROL — bit 0 starts the accelerator |
-| `0x004` | Read | STATUS — bit 0 busy, bit 1 complete |
-| `0x100–0x4FC` | Write | Input coefficient registers |
-| `0x500–0x8FC` | Read | Output coefficient registers |
-
-The accelerator is mapped at processor base address `0x1000`.
-
-The interface is a simple synchronous MMIO implementation, not an AXI, AHB, or Wishbone interface.
-
----
-
-## Verification and Results
-
-Verification was performed at multiple levels, from arithmetic units to complete processor-driven accelerator execution.
-
-### Verification flow
+The accelerator is integrated with the PicoRV32 processor through a memory-mapped interface.
 
 ```mermaid
 flowchart TD
-    A["Python Reference Models"]
-    B["Golden Test Vectors"]
-    C["Arithmetic Unit Tests"]
-    D["Butterfly and Stage Tests"]
-    E["Full NTT Engine Tests"]
-    F["MMIO Tests"]
-    G["PicoRV32 Integration"]
-    H["Output Comparison"]
-    I["PASS / FAIL"]
-
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F --> G
-    G --> H
-    H --> I
+    A["PicoRV32 CPU"] --> B["Bus Adapter"]
+    B --> C["Memory and Address Decoder"]
+    C --> D["Instruction / Data Memory"]
+    C --> E["NTT Accelerator MMIO"]
+    E --> F["NTT Engine"]
+    F --> E
+    E --> C
+    C --> B
+    B --> A
 ```
 
-### Functional verification summary
+### Processor-Controlled Operation
 
-| Verification level | Recorded result |
-|---|---|
-| Python comparison with `kyber-py` | 6/6 vectors passed |
-| Independent reference checks | 5/5 vectors passed |
-| Stress-vector generation | 4/4 vectors generated |
-| HEX vector export | 8/8 memory files generated |
-| NTT stage verification | 1,536 butterfly operations, zero mismatches |
-| Full NTT engine | 4 input patterns passed |
-| MMIO verification | Tested patterns passed |
-| PicoRV32 integration | 5 input patterns passed |
+The processor firmware performs the following operations:
 
-### Processor-level test coverage
+1. Loads the input coefficients.
+2. Configures the accelerator.
+3. Starts the NTT operation.
+4. Polls the accelerator status.
+5. Reads the transformed coefficients.
+6. Compares the results against the expected reference output.
 
-| Input pattern | Result |
-|---|---|
-| All-zero | PASS |
-| Deterministic nonzero | PASS |
-| Single-nonzero | PASS |
-| Near-modulus | PASS |
-| Deterministic random | PASS |
+### Memory-Mapped Interface
 
-All 256 output coefficients were compared against the corresponding expected results for each recorded processor-level test pattern.
+The accelerator exposes control and coefficient-access regions through its MMIO interface.
 
-Additional local regression results:
+| Register / Region | Offset | Purpose |
+|---|---:|---|
+| Control | `0x000` | Start and control operation |
+| Status | `0x004` | Busy and completion status |
+| Input coefficients | `0x100–0x4FC` | Input coefficient access |
+| Output coefficients | `0x500–0x8FC` | Result coefficient access |
 
-- Nonzero integration: 256/256 outputs matched.
-- Near-modulus integration: 256/256 outputs matched.
-- Input coefficient normalization: 256/256 coefficients verified.
+The coefficient regions contain 256 entries, with 32-bit processor-side accesses to the coefficient interface.
 
----
+## Verification and Testing
+
+Verification was performed at multiple levels, from arithmetic modules to complete processor-accelerator operation.
+
+### Verification Flow
+
+```mermaid
+flowchart TD
+    A["Python Reference Model"] --> B["Arithmetic RTL Tests"]
+    B --> C["Butterfly Verification"]
+    C --> D["NTT Stage Verification"]
+    D --> E["Complete NTT Engine"]
+    E --> F["MMIO Verification"]
+    F --> G["PicoRV32 Integration"]
+    G --> H["FPGA Synthesis and Timing Evaluation"]
+```
+
+### Functional Verification Results
+
+| Verification level | Test coverage | Result |
+|---|---|---|
+| Modular arithmetic | Addition, subtraction and multiplication | Passed |
+| Butterfly unit | Multiple input and twiddle combinations | Passed |
+| Twiddle ROM | 128 entries | Passed |
+| NTT stages | 4 patterns × 384 butterflies = 1,536 operations | Passed |
+| Complete NTT engine | 4 input patterns, 256 outputs each | Passed |
+| MMIO interface | 4 input patterns | Passed |
+| PicoRV32 integration | 5 input patterns, 256 outputs each | Passed |
+| Input normalization | All 256 coefficient reductions | Passed |
+
+### Processor-Level Test Patterns
+
+The integrated processor and accelerator were verified using:
+
+- All-zero coefficients.
+- Deterministic nonzero coefficients.
+- Single nonzero coefficient.
+- Near-modulus coefficients.
+- Deterministic random coefficients.
+
+For each processor-level test pattern, all 256 hardware output coefficients were compared against the expected reference output.
+
+**Result:** All five processor-level patterns passed the coefficient comparison.
+
+The nonzero integration test completed at cycle 13,315, and the near-modulus integration test completed at cycle 12,941 in their respective simulations.
 
 ## FPGA Implementation Evaluation
 
-The design was evaluated using open-source FPGA implementation tools.
+The RTL was synthesized for FPGA implementation and evaluated using the ECP5 toolchain.
 
-**Toolchain:** Yosys for synthesis and nextpnr-ecp5 for placement and routing.
+### ECP5 Synthesis Results
 
-### Target configuration
+Target configuration: **ECP5-85K, CABGA381, speed grade 6**
 
-| Parameter | Value |
-|---|---|
-| FPGA family | Lattice ECP5 |
-| Device class | 85K |
-| Package | CABGA381 |
-| Speed grade | 6 |
-| Requested frequency | 50 MHz |
-
-### Synthesis resource utilization
-
-| Resource | Utilization |
+| Resource | Used |
 |---|---:|
 | LUT4 | 23,707 |
+| TRELLIS_FF | 6,194 |
+| CCU2C | 1,988 |
+| MULT18X18D | 2 |
+| PFUMX | 5,098 |
+| L6MUX21 | 68 |
+
+### Place-and-Route Results
+
+| Metric | Result |
+|---|---:|
+| Requested clock frequency | 50 MHz |
+| Reported maximum frequency | 11.32 MHz |
+| TRELLIS_COMB | 28,811 |
 | TRELLIS_FF | 6,194 |
 | MULT18X18D | 2 |
 | DP16KD block RAM | 0 |
 
-The coefficient storage mapped to registers rather than dedicated block RAM in the evaluated implementation.
+<details>
+<summary><strong>Timing analysis</strong></summary>
 
-### Timing evaluation
+The place-and-route report identified a critical path from the NTT engine control logic to coefficient-memory write logic.
 
-<PRIVATE_DATE>
+The reported path delay was approximately **88.354 ns**.
 
-| Metric | Result |
-|---|---:|
-| Requested frequency | 50 MHz |
-| Tool-reported Fmax | 11.318 MHz |
-| Critical path delay | 88.354 ns |
-| Routing contribution | 59.208 ns |
-| Timing target | Not met |
+- Routing delay: 59.208 ns
+- Logic delay: 28.621 ns
+- Clock-to-Q delay: 0.525 ns
 
-The critical path extended from transform control logic through butterfly multiplication and coefficient-memory write logic.
+Routing contributed the largest portion of the reported critical-path delay.
 
-Routing accounted for approximately 67% of the reported critical path delay.
+The implementation did not meet the requested 50 MHz target. The reported 11.32 MHz value is the tool's timing estimate for this implementation and configuration, not a measurement from a physical FPGA board.
 
-**Engineering observation:** The current implementation successfully passed synthesis and placement-and-routing evaluation, but did not meet the requested 50 MHz target. The reported frequency is a tool estimate, not a physical FPGA measurement.
+</details>
 
----
+### Implementation Observations
+
+- The design successfully passed ECP5 synthesis.
+- The current coefficient storage implementation maps primarily to flip-flops rather than embedded block RAM.
+- The critical path includes arithmetic and coefficient-memory write logic.
+- The current implementation provides a baseline for future area and timing optimization.
 
 ## Repository Structure
 
 ```text
-riscv-ntt-accelerator/
+riscv_ntt_accelerator/
+│
+├── software/
+│   └── ntt_reference.py
 │
 ├── rtl/
-│   ├── mlkem_ntt_engine.v
 │   ├── modular_adder.v
 │   ├── modular_subtractor.v
 │   ├── modular_multiplier.v
 │   ├── ntt_butterfly.v
 │   ├── ntt_twiddle_rom.v
+│   ├── mlkem_ntt_engine.v
 │   └── ntt_accelerator_mmio.v
 │
 ├── integration/
 │   ├── picorv32.v
 │   ├── picorv32_ntt_bus_adapter.v
 │   ├── picorv32_ntt_memory.v
-│   └── picorv32_ntt_top.v
+│   ├── picorv32_ntt_top.v
+│   └── testbenches
 │
 ├── firmware/
-│   ├── main.c
-│   ├── start.S
-│   ├── linker.ld
-│   └── *.hex
-│
-├── software/
-│   ├── ntt_reference.py
-│   ├── compare_with_kyber.py
-│   ├── ntt_independent_check.py
-│   └── stress_vectors/
 │
 ├── testbench/
-│   ├── modular_adder_tb.v
-│   ├── modular_subtractor_tb.v
-│   ├── modular_multiplier_tb.v
-│   ├── ntt_butterfly_tb.v
-│   └── ntt_stage_tb.v
+│
+├── results/
+│   ├── synthesis reports
+│   ├── place-and-route reports
+│   └── implementation outputs
 │
 └── README.md
 ```
 
-The repository also contains additional integration testbenches, vector-generation utilities, and generated verification data.
-
----
-
 ## Tools and Technologies
 
-| Area | Technology |
+| Tool / Technology | Purpose |
 |---|---|
-| Hardware description | Verilog |
-| Processor architecture | RISC-V |
-| CPU core | PicoRV32 |
-| Software reference | Python |
-| Independent reference | kyber-py |
-| RTL simulation | Icarus Verilog |
-| Synthesis | Yosys |
-| FPGA implementation | nextpnr-ecp5 |
-| Firmware | C and RISC-V assembly |
-| Version control | Git and GitHub |
+| Verilog | Hardware description |
+| PicoRV32 | RISC-V processor core |
+| Python | Reference modelling and test generation |
+| Icarus Verilog | RTL simulation |
+| Yosys | Logic synthesis |
+| nextpnr-ecp5 | FPGA placement and routing |
+| ECP5 | FPGA implementation target |
+| Git and GitHub | Version control and project hosting |
 
----
+## Current Limitations
 
-## Current Scope and Future Work
+This project focuses on an NTT accelerator and its integration with a RISC-V processor. It is not a complete ML-KEM implementation or a complete FIPS 203 cryptographic processor.
 
-### Implemented
+The current implementation does not claim to implement the complete ML-KEM key-generation, encapsulation, or decapsulation workflows.
 
-- Forward 256-coefficient NTT engine.
-- Modular arithmetic and butterfly datapath.
-- Twiddle-factor ROM.
-- MMIO accelerator interface.
-- PicoRV32 processor integration.
-- Firmware-driven computation.
-- Software-reference and RTL verification.
-- FPGA synthesis and placement-and-routing evaluation.
+The FPGA timing evaluation also shows that the current design does not meet the requested 50 MHz target. Further optimization is required before claiming timing closure or physical hardware performance.
 
-### Future improvements
+## Future Work
 
-- Critical-path and timing optimization.
-- Improved coefficient-memory architecture and block RAM inference.
-- Datapath pipelining.
-- Inverse NTT support.
-- Expanded verification and regression coverage.
-- Physical FPGA board validation.
-- Power evaluation.
+- Optimize the critical path and improve achievable clock frequency.
+- Investigate efficient coefficient-memory architectures and block RAM inference.
+- Evaluate alternative modular multiplication architectures.
+- Improve resource utilization and datapath scheduling.
+- Extend the design toward additional ML-KEM operations.
+- Perform hardware validation on a physical FPGA board.
+- Explore a more complete processor-driven post-quantum cryptographic accelerator.
 
-**Scope note:** This project is an NTT hardware-acceleration implementation using ML-KEM-related parameters. It is not a complete FIPS 203 implementation and does not claim full ML-KEM cryptographic compliance or physical hardware validation.
+## Project Scope
 
----
+The project demonstrates the design and verification of a processor-integrated NTT hardware accelerator, from mathematical reference modelling through RTL implementation, functional testing, and FPGA implementation analysis.
 
-## License
-
-This repository is intended for academic and engineering evaluation. A project-level open-source license has not yet been selected. Third-party components retain their respective licensing terms.
-
----
-
-<p align="center">
-
-  **RISC-V × Hardware Acceleration × Post-Quantum Cryptography**
-
-  *Exploring efficient hardware architectures for polynomial computation.*
-
-</p>
+It provides a foundation for further research into hardware acceleration for lattice-based post-quantum cryptography.
