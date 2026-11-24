@@ -31,13 +31,19 @@ module mlkem_ntt_bram_regression_tb;
     always #5 clk = ~clk;
 
     mlkem_ntt_engine old_engine (
-        .clk(clk), .rst(rst), .start(old_start),
-        .coeff_in(coeff_in), .coeff_out(old_coeff_out),
-        .busy(old_busy), .done(old_done)
+        .clk(clk),
+        .rst(rst),
+        .start(old_start),
+        .coeff_in(coeff_in),
+        .coeff_out(old_coeff_out),
+        .busy(old_busy),
+        .done(old_done)
     );
 
     mlkem_ntt_bram_engine_barrett_pipe new_engine (
-        .clk(clk), .rst(rst), .start(new_start),
+        .clk(clk),
+        .rst(rst),
+        .start(new_start),
         .cpu_wr_en(cpu_wr_en),
         .cpu_wr_addr(cpu_wr_addr),
         .cpu_wr_data(cpu_wr_data),
@@ -45,7 +51,8 @@ module mlkem_ntt_bram_regression_tb;
         .cpu_rd_addr(cpu_rd_addr),
         .cpu_rd_data(cpu_rd_data),
         .init_done(init_done),
-        .busy(new_busy), .done(new_done)
+        .busy(new_busy),
+        .done(new_done)
     );
 
     function [11:0] test_value;
@@ -55,7 +62,8 @@ module mlkem_ntt_bram_regression_tb;
             case (pattern)
                 0: test_value = (index * 37 + 123) % 3329;
                 1: test_value = 3320 + (index % 9);
-                2: test_value = (index * 1103 + index * index * 17 + 2027) % 4096;
+                2: test_value =
+                    (index * 1103 + index * index * 17 + 2027) % 4096;
                 default: test_value = 0;
             endcase
         end
@@ -100,7 +108,7 @@ module mlkem_ntt_bram_regression_tb;
                 failures = failures + 1;
             end
 
-            // Compare original engine against the golden reference.
+            // Compare original engine against golden reference.
             if (pattern == 0) begin
                 golden_errors = 0;
                 $display("GOLDEN REFERENCE CHECK - ORIGINAL ENGINE");
@@ -108,6 +116,7 @@ module mlkem_ntt_bram_regression_tb;
                 for (i = 0; i < 256; i = i + 1) begin
                     if (old_coeff_out[i*12 +: 12]
                         !== expected_mem[i][11:0]) begin
+
                         golden_errors = golden_errors + 1;
 
                         if (golden_errors <= 8)
@@ -122,6 +131,7 @@ module mlkem_ntt_bram_regression_tb;
 
                 $display("Original engine golden mismatches: %0d",
                          golden_errors);
+
                 failures = failures + golden_errors;
             end
 
@@ -137,8 +147,13 @@ module mlkem_ntt_bram_regression_tb;
                 total_tests = total_tests + 1;
 
                 if (cpu_rd_data !== old_coeff_out[i*12 +: 12]) begin
-                    $display("FAIL: Index %0d, BRAM=%0d, Original=%0d",
-                        i, cpu_rd_data, old_coeff_out[i*12 +: 12]);
+                    $display(
+                        "FAIL: Index %0d, BRAM=%0d, Original=%0d",
+                        i,
+                        cpu_rd_data,
+                        old_coeff_out[i*12 +: 12]
+                    );
+
                     failures = failures + 1;
                 end
 
@@ -175,19 +190,22 @@ module mlkem_ntt_bram_regression_tb;
         $display("Total coefficient comparisons: %0d", total_tests);
         $display("Golden reference mismatches: %0d", golden_errors);
 
-        if (failures == 0)
+        if (failures == 0) begin
             $display("RESULT: ALL REGRESSION TESTS PASSED.");
-        else
+            $display("======================================");
+            $finish;
+        end
+        else begin
             $display("RESULT: %0d FAILURES.", failures);
-
-        $display("======================================");
-        $finish;
+            $display("======================================");
+            $fatal(1, "BRAM engine regression FAILED.");
+        end
     end
 
+    // Global simulation timeout.
     initial begin
         repeat (100000) @(posedge clk);
-        $display("FAIL: Global simulation timeout.");
-        $finish;
+        $fatal(1, "FAIL: Global simulation timeout.");
     end
 
 endmodule

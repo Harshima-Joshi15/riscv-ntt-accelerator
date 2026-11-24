@@ -1,3 +1,4 @@
+
 `timescale 1ns/1ps
 
 module ntt_mmio_bram_control_tb;
@@ -87,7 +88,8 @@ module ntt_mmio_bram_control_tb;
             if (status[2] !== 1'b1) begin
                 $display("FAIL: BRAM initialization did not complete.");
                 errors = errors + 1;
-            end else
+            end
+            else
                 $display("PASS: BRAM initialization completed.");
         end
     endtask
@@ -105,7 +107,8 @@ module ntt_mmio_bram_control_tb;
             if (status[0] !== 1'b1) begin
                 $display("FAIL: BUSY was not asserted.");
                 errors = errors + 1;
-            end else
+            end
+            else
                 $display("PASS: BUSY asserted after START.");
         end
     endtask
@@ -123,13 +126,15 @@ module ntt_mmio_bram_control_tb;
             if (status[1] !== 1'b1) begin
                 $display("FAIL: DONE was not asserted within timeout.");
                 errors = errors + 1;
-            end else
+            end
+            else
                 $display("PASS: DONE sticky flag asserted.");
 
             if (status[0] !== 1'b0) begin
                 $display("FAIL: BUSY did not clear after completion.");
                 errors = errors + 1;
-            end else
+            end
+            else
                 $display("PASS: BUSY cleared after completion.");
         end
     endtask
@@ -149,7 +154,8 @@ module ntt_mmio_bram_control_tb;
         if (status[1:0] !== 2'b00) begin
             $display("FAIL: Reset status is not clear.");
             errors = errors + 1;
-        end else
+        end
+        else
             $display("PASS: Reset clears BUSY and DONE.");
 
         // TEST 2: Initialization cleared coefficient memory.
@@ -158,7 +164,8 @@ module ntt_mmio_bram_control_tb;
         if (status[11:0] !== 12'd0) begin
             $display("FAIL: BRAM location 0 was not initialized.");
             errors = errors + 1;
-        end else
+        end
+        else
             $display("PASS: BRAM initialization clears coefficient memory.");
 
         // TEST 3: START with bit 0 cleared.
@@ -167,7 +174,8 @@ module ntt_mmio_bram_control_tb;
         if (dut.start !== 1'b0) begin
             $display("FAIL: START pulse generated with bit 0 cleared.");
             errors = errors + 1;
-        end else
+        end
+        else
             $display("PASS: START bit 0 gating works.");
 
         // TEST 4: Valid and misaligned input writes.
@@ -179,7 +187,8 @@ module ntt_mmio_bram_control_tb;
         if (status[11:0] !== 12'd123) begin
             $display("FAIL: Valid write or misaligned-write rejection failed.");
             errors = errors + 1;
-        end else
+        end
+        else
             $display("PASS: Valid input write accepted; misaligned write rejected.");
 
         // TEST 5: Invalid writes.
@@ -192,15 +201,19 @@ module ntt_mmio_bram_control_tb;
         if (status[11:0] !== 12'd123) begin
             $display("FAIL: Invalid writes modified coefficient memory.");
             errors = errors + 1;
-        end else
+        end
+        else
             $display("PASS: Invalid-address writes rejected.");
 
         // TEST 6: Invalid reads.
         read_status(status);
+
         if (status[1:0] !== 2'b00 || status[2] !== 1'b1) begin
             $display("FAIL: Status read failed.");
             errors = errors + 1;
         end
+        else
+            $display("PASS: Status register read correctly.");
 
         @(negedge clk);
         addr = 12'h0FC;
@@ -213,7 +226,8 @@ module ntt_mmio_bram_control_tb;
         if (status !== 32'd0) begin
             $display("FAIL: Invalid read at 0x0FC.");
             errors = errors + 1;
-        end else
+        end
+        else
             $display("PASS: Invalid read at 0x0FC returns zero.");
 
         @(negedge clk);
@@ -227,7 +241,8 @@ module ntt_mmio_bram_control_tb;
         if (status !== 32'd0) begin
             $display("FAIL: Misaligned output read.");
             errors = errors + 1;
-        end else
+        end
+        else
             $display("PASS: Misaligned output read returns zero.");
 
         // TEST 7: Start accelerator.
@@ -240,7 +255,8 @@ module ntt_mmio_bram_control_tb;
         if (dut.engine.coeff_bram.mem[0] === 12'd456) begin
             $display("FAIL: CPU write modified BRAM while BUSY.");
             errors = errors + 1;
-        end else
+        end
+        else
             $display("PASS: CPU write rejected while BUSY.");
 
         // TEST 9: START while BUSY must be ignored.
@@ -250,7 +266,8 @@ module ntt_mmio_bram_control_tb;
         if (status[0] !== 1'b1 || status[1] !== 1'b0) begin
             $display("FAIL: START while BUSY affected status.");
             errors = errors + 1;
-        end else
+        end
+        else
             $display("PASS: START while BUSY ignored.");
 
         wait_for_done();
@@ -262,20 +279,24 @@ module ntt_mmio_bram_control_tb;
             $display("FAIL: First output mismatch. Actual=%0d Expected=123.",
                      status[11:0]);
             errors = errors + 1;
-        end else
+        end
+        else
             $display("PASS: Synchronous output read returns correct result.");
 
         // TEST 11: New START clears DONE.
         for (k = 0; k < 256; k = k + 1) begin
-            write_reg(12'h100 + (k * 4), (k == 0) ? 32'd789 : 32'd0);
+            write_reg(12'h100 + (k * 4),
+                      (k == 0) ? 32'd789 : 32'd0);
         end
+
         write_reg(12'h000, 32'd1);
         read_status(status);
 
         if (status[1] !== 1'b0) begin
             $display("FAIL: DONE did not clear on new START.");
             errors = errors + 1;
-        end else
+        end
+        else
             $display("PASS: New START clears DONE sticky flag.");
 
         wait_for_busy();
@@ -287,7 +308,8 @@ module ntt_mmio_bram_control_tb;
             $display("FAIL: Second operation mismatch. Actual=%0d Expected=789.",
                      status[11:0]);
             errors = errors + 1;
-        end else
+        end
+        else
             $display("PASS: Repeated operation produces correct result.");
 
         // TEST 12: Reset and reinitialization.
@@ -301,7 +323,8 @@ module ntt_mmio_bram_control_tb;
         if (status[1:0] !== 2'b00) begin
             $display("FAIL: Reset did not clear completion status.");
             errors = errors + 1;
-        end else
+        end
+        else
             $display("PASS: Reset clears completion status.");
 
         read_coefficient(12'h500, status);
@@ -309,28 +332,29 @@ module ntt_mmio_bram_control_tb;
         if (status[11:0] !== 12'd0) begin
             $display("FAIL: Reset did not clear BRAM contents.");
             errors = errors + 1;
-        end else
+        end
+        else
             $display("PASS: Reset reinitializes shared BRAM.");
 
+        // Final result.
         $display("--------------------------------------");
 
-        if (errors == 0)
+        if (errors == 0) begin
             $display("RESULT: ALL BRAM MMIO TESTS PASSED.");
-        else
+            $display("--------------------------------------");
+            $finish;
+        end
+        else begin
             $display("RESULT: %0d BRAM MMIO TESTS FAILED.", errors);
-
-        $display("--------------------------------------");
-        $finish;
+            $display("--------------------------------------");
+            $fatal(1, "BRAM MMIO CONTROL TEST FAILED.");
+        end
     end
 
+    // Global simulation timeout.
     initial begin
         #10000000;
-        $display("FAIL: Global simulation timeout.");
-        $finish;
+        $fatal(1, "FAIL: Global simulation timeout.");
     end
 
 endmodule
-
-
-
-
