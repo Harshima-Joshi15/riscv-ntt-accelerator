@@ -25,6 +25,10 @@ int main(void)
     MISMATCH_INDEX = 0xFFFFFFFFu;
     DONE_FLAG = 0;
 
+    /* Wait until accelerator BRAM initialization completes */
+    while ((REG_STATUS & 4u) == 0u) {
+    }
+
     /* Load deterministic nonzero input coefficients */
     for (i = 0; i < 256; i++) {
         uint32_t value = i * 37u + 123u;
