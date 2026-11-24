@@ -336,6 +336,51 @@ module ntt_mmio_bram_control_tb;
         else
             $display("PASS: Reset reinitializes shared BRAM.");
 
+        // TEST 13: Reset during active multiplier pipeline.
+        write_reg(12'h100, 32'd321);
+        write_reg(12'h000, 32'd1);
+        wait_for_busy();
+
+        timeout_count = 0;
+
+        while (dut.engine.state !== 3'd7 && timeout_count < 100) begin
+            @(negedge clk);
+            timeout_count = timeout_count + 1;
+        end
+
+        if (dut.engine.state !== 3'd7) begin
+            $display("FAIL: Engine did not reach PIPE_WAIT.");
+            errors = errors + 1;
+        end
+        else begin
+            $display("PASS: Engine reached active multiplier pipeline.");
+
+            rst = 1;
+            repeat (3) @(negedge clk);
+            rst = 0;
+
+            wait_for_ready();
+            read_status(status);
+
+            if (status[1:0] !== 2'b00) begin
+                $display("FAIL: Active reset did not clear BUSY/DONE.");
+                errors = errors + 1;
+            end
+            else
+                $display("PASS: Active reset clears BUSY and DONE.");
+
+            // Verify all 256 BRAM coefficients were cleared.
+            for (k = 0; k < 256; k = k + 1) begin
+                if (dut.engine.coeff_bram.mem[k] !== 12'd0) begin
+                    $display("FAIL: BRAM location %0d was not cleared.", k);
+                    errors = errors + 1;
+                end
+            end
+
+            if (errors == 0)
+                $display("PASS: Active reset clears all 256 BRAM coefficients.");
+        end
+
         // Final result.
         $display("--------------------------------------");
 

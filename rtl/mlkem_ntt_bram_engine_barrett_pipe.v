@@ -62,7 +62,8 @@ module mlkem_ntt_bram_engine_barrett_pipe (
     wire [11:0] normalized_cpu_data;
     wire [8:0] next_group;
 
-    assign normalized_cpu_data = cpu_wr_data % Q;
+    assign normalized_cpu_data =
+    (cpu_wr_data >= Q) ? (cpu_wr_data - Q) : cpu_wr_data;
 
     assign a_index = group_start + j_offset;
     assign b_index = group_start + j_offset + stage_len;
