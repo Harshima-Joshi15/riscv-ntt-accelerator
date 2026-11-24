@@ -1,3 +1,4 @@
+
 `timescale 1ns/1ps
 
 module mlkem_ntt_bram_regression_tb;
@@ -20,8 +21,11 @@ module mlkem_ntt_bram_regression_tb;
 
     wire init_done, new_busy, new_done;
 
+    reg [31:0] expected_mem [0:255];
+
     integer failures = 0;
     integer total_tests = 0;
+    integer golden_errors = 0;
     integer i;
 
     always #5 clk = ~clk;
@@ -65,7 +69,7 @@ module mlkem_ntt_bram_regression_tb;
             $display("--------------------------------------");
             $display("Testing: %0s", case_name);
 
-            // Construct and load identical input vectors.
+            // Load identical input vectors into both engines.
             for (i = 0; i < 256; i = i + 1) begin
                 value = test_value(pattern, i);
                 coeff_in[i*12 +: 12] = value;
@@ -96,7 +100,32 @@ module mlkem_ntt_bram_regression_tb;
                 failures = failures + 1;
             end
 
-            // Read and compare all 256 BRAM coefficients.
+            // Compare original engine against the golden reference.
+            if (pattern == 0) begin
+                golden_errors = 0;
+                $display("GOLDEN REFERENCE CHECK - ORIGINAL ENGINE");
+
+                for (i = 0; i < 256; i = i + 1) begin
+                    if (old_coeff_out[i*12 +: 12]
+                        !== expected_mem[i][11:0]) begin
+                        golden_errors = golden_errors + 1;
+
+                        if (golden_errors <= 8)
+                            $display(
+                                "Index %0d: Original=%0d Expected=%0d",
+                                i,
+                                old_coeff_out[i*12 +: 12],
+                                expected_mem[i][11:0]
+                            );
+                    end
+                end
+
+                $display("Original engine golden mismatches: %0d",
+                         golden_errors);
+                failures = failures + golden_errors;
+            end
+
+            // Compare all 256 BRAM coefficients against original engine.
             for (i = 0; i < 256; i = i + 1) begin
                 @(negedge clk);
                 cpu_rd_en = 1;
@@ -127,7 +156,10 @@ module mlkem_ntt_bram_regression_tb;
     initial begin
         $display("======================================");
         $display(" BRAM ENGINE REGRESSION TEST");
+        $display(" WITH GOLDEN REFERENCE CHECK");
         $display("======================================");
+
+        $readmemh("firmware/expected_ntt_nonzero.hex", expected_mem);
 
         repeat (3) @(negedge clk);
         rst = 0;
@@ -141,12 +173,14 @@ module mlkem_ntt_bram_regression_tb;
 
         $display("======================================");
         $display("Total coefficient comparisons: %0d", total_tests);
+        $display("Golden reference mismatches: %0d", golden_errors);
+
         if (failures == 0)
             $display("RESULT: ALL REGRESSION TESTS PASSED.");
         else
             $display("RESULT: %0d FAILURES.", failures);
-        $display("======================================");
 
+        $display("======================================");
         $finish;
     end
 
@@ -157,7 +191,3 @@ module mlkem_ntt_bram_regression_tb;
     end
 
 endmodule
-
-
-
-
