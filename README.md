@@ -904,3 +904,36 @@ A formal project-level open-source license has not yet been selected. Third-part
   *Exploring hardware architectures for efficient polynomial computation.*
 
 </p>
+
+## Final Implementation Status — November 2026
+
+The final verified implementation uses a shared synchronous 256 x 12-bit, 1R1W coefficient BRAM, a pipelined NTT engine, and an eight-cycle Barrett modular multiplier.
+
+### Final FPGA implementation results
+
+| Metric | Result |
+|---|---:|
+| FPGA target | Lattice ECP5 LFE5U-85K |
+| DP16KD | 1 |
+| MULT18X18D | 1 |
+| LUT4 (synthesis) | 634 |
+| TRELLIS_FF (synthesis) | 438 |
+| Routed combinational cells | 1,064 |
+| Routed Fmax estimate | 78.7836 MHz |
+| Requested frequency | 50 MHz |
+
+These are tool-reported synthesis and routing results, not physical FPGA board measurements. Board-level timing and external I/O validation remain outstanding.
+
+### Verification status
+
+- Exhaustive Barrett multiplier verification: 11,082,241 coefficient pairs passed.
+- Pipelined multiplier: 10,000 consecutive transactions passed.
+- NTT regression: four input patterns, 1,024 coefficient comparisons passed.
+- Independent nonzero golden-reference comparison: zero mismatches.
+- PicoRV32 integration: nonzero, near-modulus, random, and zero input tests passed.
+
+### Project scope
+
+This project implements a processor-integrated 256-point forward NTT accelerator using ML-KEM parameters (N=256, q=3329). It is not a complete FIPS 203 ML-KEM implementation. Physical FPGA board validation, power measurement, and silicon characterization have not been performed.
+
+This final implementation status supersedes earlier preliminary architecture and PPA figures elsewhere in this README.
