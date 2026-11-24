@@ -23,6 +23,10 @@ int main(void)
     MISMATCH_INDEX = 0xFFFFFFFFu;
     DONE_FLAG = 0;
 
+    /* Wait until coefficient BRAM initialization completes. */
+    while ((REG_STATUS & 4u) == 0u) {
+    }
+
     /* Near-modulus input: 3328, 3327, 3326, 3325, 3324 */
     for (i = 0; i < 256; i++) {
         REG_INPUT(i) = 3328u - offset;

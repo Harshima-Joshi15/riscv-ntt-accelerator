@@ -1,6 +1,6 @@
 
 #include <stdint.h>
-#include "test_vectors.h"
+#include "test_vectors_random.h"
 #include "random_input.h"
 
 #define NTT_BASE       0x10000000u
@@ -23,6 +23,10 @@ int main(void)
     RESULT = 0;
     MISMATCH_INDEX = 0xFFFFFFFFu;
     DONE_FLAG = 0;
+
+    /* Wait until coefficient BRAM initialization completes. */
+    while ((REG_STATUS & 4u) == 0u) {
+    }
 
     /* Load deterministic random input */
     for (i = 0; i < 256; i++) {

@@ -23,7 +23,9 @@ int main(void)
     RESULT = 0;
     MISMATCH_INDEX = 0xFFFFFFFFu;
     DONE_FLAG = 0;
-
+    /* Wait until accelerator BRAM initialization is complete */
+    while ((REG_STATUS & 4u) == 0u) {
+    }
     /* Load deterministic random input */
     for (i = 0; i < 256; i++) {
         REG_INPUT(i) = random_input[i];

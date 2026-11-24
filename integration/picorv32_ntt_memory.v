@@ -28,7 +28,7 @@ module picorv32_ntt_memory #(
             data_mem[i] = 32'h00000000;
         end
 
-        $readmemh(PROGRAM_FILE, program_mem, 0, PROGRAM_LAST_WORD);
+        $readmemh(PROGRAM_FILE, program_mem);
     end
 
     // Combinational reads and memory transaction acknowledgement.
